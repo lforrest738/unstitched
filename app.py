@@ -32,11 +32,18 @@ NEWS_ARTICLES = [
     }
 ]
 
+# Real images from Unsplash
 MARKETPLACE_ITEMS = [
-    {"id": 1, "title": "Vintage Denim Jacket", "price": 25.00, "seller": "SarahSews", "icon": "🧥", "rating": "A", "desc": "Saved from landfill!"},
-    {"id": 2, "title": "Upcycled Tee", "price": 12.50, "seller": "GreenGuy", "icon": "👕", "rating": "A+", "desc": "Hand-painted design."},
-    {"id": 3, "title": "Chunky Knit Sweater", "price": 18.00, "seller": "RetroFit", "icon": "🧶", "rating": "B", "desc": "100% Wool."},
-    {"id": 4, "title": "Hemp Cargo Pants", "price": 30.00, "seller": "EcoWarrior", "icon": "👖", "rating": "A", "desc": "Super durable."},
+    {"id": 1, "title": "Vintage Denim Jacket", "price": 45.00, "seller": "SarahSews", "image": "https://images.unsplash.com/photo-1576871337632-b9aef4c17ab9?auto=format&fit=crop&w=300&q=80", "rating": "A", "desc": "Saved from landfill!", "category": "Outerwear", "style": "Vintage", "material": "Denim"},
+    {"id": 2, "title": "Organic Cotton Tee", "price": 15.00, "seller": "GreenGuy", "image": "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=300&q=80", "rating": "A+", "desc": "Hand-painted design.", "category": "Tops", "style": "Casual", "material": "Cotton"},
+    {"id": 3, "title": "Chunky Knit Sweater", "price": 28.00, "seller": "RetroFit", "image": "https://images.unsplash.com/photo-1624835630669-6d843812543d?auto=format&fit=crop&w=300&q=80", "rating": "B", "desc": "100% Wool.", "category": "Tops", "style": "Vintage", "material": "Wool"},
+    {"id": 4, "title": "Hemp Cargo Pants", "price": 30.00, "seller": "EcoWarrior", "image": "https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?auto=format&fit=crop&w=300&q=80", "rating": "A", "desc": "Super durable.", "category": "Bottoms", "style": "Streetwear", "material": "Hemp"},
+    {"id": 5, "title": "Floral Summer Dress", "price": 35.00, "seller": "LizzieLoops", "image": "https://images.unsplash.com/photo-1572804013309-59a88b7e92f1?auto=format&fit=crop&w=300&q=80", "rating": "A", "desc": "Upcycled fabric.", "category": "Dresses", "style": "Chic", "material": "Viscose"},
+    {"id": 6, "title": "Retro Windbreaker", "price": 40.00, "seller": "OldSchoolCool", "image": "https://images.unsplash.com/photo-1610384104075-e05c8cf200c3?auto=format&fit=crop&w=300&q=80", "rating": "B+", "desc": "90s Original.", "category": "Outerwear", "style": "Streetwear", "material": "Polyester"},
+    {"id": 7, "title": "Linen Trousers", "price": 55.00, "seller": "PureThreads", "image": "https://images.unsplash.com/photo-1584370848010-d7cc637703e6?auto=format&fit=crop&w=300&q=80", "rating": "A++", "desc": "Biodegradable.", "category": "Bottoms", "style": "Minimalist", "material": "Linen"},
+    {"id": 8, "title": "Bucket Hat", "price": 12.00, "seller": "HatTrick", "image": "https://images.unsplash.com/photo-1575428652377-a2d80e2277fc?auto=format&fit=crop&w=300&q=80", "rating": "A", "desc": "Handmade.", "category": "Accessories", "style": "Streetwear", "material": "Cotton"},
+    {"id": 9, "title": "Silk Scarf", "price": 20.00, "seller": "SilkySmooth", "image": "https://images.unsplash.com/photo-1584030373081-f37b7bb4fa8e?auto=format&fit=crop&w=300&q=80", "rating": "A", "desc": "Natural dyes.", "category": "Accessories", "style": "Chic", "material": "Silk"},
+    {"id": 10, "title": "Patchwork Hoodie", "price": 60.00, "seller": "ReStitch", "image": "https://images.unsplash.com/photo-1556905055-8f358a7a47b2?auto=format&fit=crop&w=300&q=80", "rating": "A+", "desc": "Zero waste.", "category": "Tops", "style": "Streetwear", "material": "Cotton"},
 ]
 
 CHARITIES_DB = [
@@ -51,7 +58,6 @@ CHARITIES_DB = [
 
 def calculate_ethical_score(brand, material, origin):
     base_risk = 0
-    # Simple logic to simulate the AI decision making
     if "Polyester" in material: base_risk += 30
     elif "Organic" in material: base_risk += 5
     else: base_risk += 20
@@ -66,7 +72,7 @@ def calculate_ethical_score(brand, material, origin):
 def scan_label_mock(image):
     """Simulates AI extraction."""
     time.sleep(1.5) 
-    materials = ["Cotton", "Polyester", "Rayon", "Organic Cotton", "Nylon"]
+    materials = ["Cotton", "Polyester", "Rayon", "Organic Cotton", "Nylon", "Denim", "Wool"]
     brands = ["FastFashionCo", "EcoThread", "UrbanTrend", "Shein-Like Brand", "H&M-Like Brand"]
     origins = ["Made in China", "Made in Bangladesh", "Made in Portugal", "Made in UK", "Made in Vietnam"]
 
@@ -75,6 +81,42 @@ def scan_label_mock(image):
         "brand": random.choice(brands),
         "origin": random.choice(origins)
     }
+
+def get_recommendations():
+    """Logic to suggest items based on history and preferences."""
+    all_items = pd.DataFrame(MARKETPLACE_ITEMS)
+    
+    # 1. Get User Preferences
+    user_styles = st.session_state.get('user_styles', [])
+    
+    # 2. Get Scan History Materials
+    scanned_materials = [s['material'] for s in st.session_state.scan_history] if st.session_state.scan_history else []
+    
+    scored_items = []
+    
+    for item in MARKETPLACE_ITEMS:
+        score = 0
+        # Score based on Style Preference
+        if item['style'] in user_styles:
+            score += 3
+            
+        # Score based on Scan History (Suggesting alternatives to what they buy)
+        # e.g. if they scan Denim, show Ethical Denim
+        if item['material'] in scanned_materials:
+            score += 2
+            
+        scored_items.append((score, item))
+    
+    # Sort by score descending
+    scored_items.sort(key=lambda x: x[0], reverse=True)
+    
+    # Return top 3 if they have a score > 0, otherwise return random 3
+    top_picks = [item for score, item in scored_items if score > 0]
+    
+    if not top_picks:
+        return random.sample(MARKETPLACE_ITEMS, 3)
+    
+    return top_picks[:3]
 
 # ==========================================
 # 3. STATE & STYLING
@@ -85,12 +127,12 @@ if 'subscription' not in st.session_state: st.session_state.subscription = 'Free
 if 'accessibility_mode' not in st.session_state: st.session_state.accessibility_mode = False
 if 'scan_history' not in st.session_state: st.session_state.scan_history = []
 if 'guest_scans' not in st.session_state: st.session_state.guest_scans = 0
+if 'user_styles' not in st.session_state: st.session_state.user_styles = []
 
 def inject_css():
     """Injects CSS based on accessibility settings."""
     is_access = st.session_state.accessibility_mode
     
-    # Palette from slides + accessible mode
     bg_color = "#FFFFFF" if is_access else "#FFEEDB" # Cream
     text_color = "#000000" if is_access else "#264653" # Deep Green
     accent_teal = "#2A9D8F"
@@ -102,26 +144,23 @@ def inject_css():
         h1, h2, h3, h4 {{ color: {text_color} !important; font-family: 'Helvetica Neue', sans-serif; }}
         p, div, label, span, li {{ color: {text_color} !important; font-size: {"18px" if is_access else "16px"}; }}
         
-        /* Custom Cards */
         .stat-card {{
             background-color: white; padding: 20px; border-radius: 15px;
             border-left: 5px solid {accent_coral};
             box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 15px;
         }}
         .shop-card {{
-            background-color: white; padding: 15px; border-radius: 15px;
-            margin-bottom: 10px; box-shadow: 2px 2px 5px rgba(0,0,0,0.05);
-            text-align: center;
+            background-color: white; border-radius: 15px; overflow: hidden;
+            margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            text-align: center; padding-bottom: 10px;
         }}
-        .result-box {{
-            background-color: {accent_teal}; color: white; padding: 15px; 
-            border-radius: 10px; margin-bottom: 10px;
+        .shop-card img {{
+            width: 100%; height: 150px; object-fit: cover;
         }}
         .slogan-text {{
             text-align: center; font-style: italic; color: {accent_coral}; font-weight: bold;
         }}
         
-        /* Buttons */
         .stButton>button {{
             background-color: {accent_teal}; color: white !important;
             border-radius: 25px; border: none; padding: 10px 24px;
@@ -144,7 +183,6 @@ def render_scanner():
     st.header("📸 Behind the Label")
     st.caption("Identify materials, brands, and supply chain risks.")
     
-    # Guest Limit Logic
     if st.session_state.user_role == 'Guest' and st.session_state.guest_scans >= 10:
         st.error("You've used your 10 free scans! Join Unstitched to continue.")
         return
@@ -158,7 +196,8 @@ def render_scanner():
             
             if st.session_state.user_role == 'Guest':
                 st.session_state.guest_scans += 1
-            st.session_state.scan_history.append({"risk": risk, "brand": data['brand']})
+            # Add material to history for recommendation engine
+            st.session_state.scan_history.append({"risk": risk, "brand": data['brand'], "material": data['material']})
 
         # --- RESULTS UI ---
         st.markdown(f"""
@@ -174,13 +213,11 @@ def render_scanner():
         col1.progress(risk / 100)
         col2.metric("Risk", f"{risk}%")
         
-        # Risk Logic
         if risk > 60:
             st.error(f"⚠️ High Risk of Child Labour. {data['origin']} has known supply chain issues.")
+            st.info(f"💡 We found better ethical {data['material']} items in the Shop for you!")
         else:
             st.success("✅ Lower Risk. This item likely has a cleaner supply chain.")
-            
-        st.info("💡 **Recommendation:** Don't throw this away! Even high-risk items can be upcycled to keep them out of landfill.")
 
 def render_news():
     st.header("📰 Unstitched News")
@@ -197,9 +234,6 @@ def render_news():
             <p style="font-size: 12px; color: grey;">Source: {article['source']}</p>
         </div>
         """, unsafe_allow_html=True)
-        
-    st.subheader("How you can help")
-    st.write("By using Unstitched, you are choosing transparency over exploitation.")
     
     if st.button("Donate to Support Change"):
         render_donation_modal()
@@ -212,27 +246,54 @@ def render_donation_modal():
         if c2.button("£5"): st.toast("Thank you for your £5 donation! 🎉")
         if c3.button("£10"): st.toast("Thank you for your £10 donation! 🎉")
 
+def render_shop_item(item):
+    st.markdown(f"""
+    <div class="shop-card">
+        <img src="{item['image']}" />
+        <div style="padding: 10px;">
+            <div style="font-weight: bold; font-size: 14px;">{item['title']}</div>
+            <div style="color: #E76F51; font-weight: bold;">£{item['price']:.2f}</div>
+            <div style="font-size: 10px; color: grey;">{item['desc']}</div>
+            <span style="background-color: #2A9D8F; color: white; padding: 2px 8px; border-radius: 8px; font-size: 10px;">{item['rating']}</span>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
 def render_shop():
     st.header("🛍️ Simple Shop")
-    st.write("Buy, sell, and swap ethical fashion.")
     
-    col1, col2 = st.columns([3, 1])
-    col1.text_input("Search items...", placeholder="Vintage denim, cotton tee...")
-    col2.selectbox("Sort", ["Newest", "Price: Low to High"])
+    # --- RECOMMENDATIONS SECTION ---
+    st.subheader("Selected For You")
+    st.caption("Based on your style and scan history")
+    
+    recommendations = get_recommendations()
+    rec_cols = st.columns(len(recommendations))
+    for i, item in enumerate(recommendations):
+        with rec_cols[i]:
+            render_shop_item(item)
+            if st.button("View", key=f"rec_{item['id']}"):
+                st.toast(f"Viewing {item['title']}")
+                
+    st.divider()
 
+    # --- ALL ITEMS SECTION ---
+    st.subheader("Browse All")
+    col1, col2 = st.columns([3, 1])
+    search = col1.text_input("Search items...", placeholder="Vintage denim, cotton tee...")
+    sort_opt = col2.selectbox("Sort", ["Newest", "Price: Low to High"])
+
+    # Filtering logic (basic)
+    filtered_items = MARKETPLACE_ITEMS
+    if search:
+        filtered_items = [i for i in MARKETPLACE_ITEMS if search.lower() in i['title'].lower()]
+    
+    # Grid Layout
     cols = st.columns(2)
-    for i, item in enumerate(MARKETPLACE_ITEMS):
+    for i, item in enumerate(filtered_items):
         with cols[i % 2]:
-            st.markdown(f"""
-            <div class="shop-card">
-                <div style="font-size: 40px;">{item['icon']}</div>
-                <div style="font-weight: bold;">{item['title']}</div>
-                <div style="color: #E76F51;">£{item['price']:.2f}</div>
-                <div style="font-size: 10px; color: grey;">{item['desc']}</div>
-            </div>
-            """, unsafe_allow_html=True)
-            if st.button("View", key=f"btn_{item['id']}"):
-                st.toast(f"Opening details for {item['title']}...")
+            render_shop_item(item)
+            if st.button("Add to Bag", key=f"btn_{item['id']}"):
+                st.toast(f"Added {item['title']} to cart!")
 
 def render_notice_board():
     st.header("📌 Community Board")
@@ -246,14 +307,13 @@ def render_notice_board():
     st.write("Theme: **Denim Transformation**")
     
     c1, c2 = st.columns(2)
-    with c1: st.image("https://placehold.co/300x300/264653/FFF?text=Before", caption="Old Jeans")
-    with c2: st.image("https://placehold.co/300x300/E76F51/FFF?text=After", caption="New Tote Bag!")
+    with c1: st.image("https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=300&q=80", caption="Before: Ripped Jeans")
+    with c2: st.image("https://images.unsplash.com/photo-1598532163257-ae3c6b2524b6?auto=format&fit=crop&w=300&q=80", caption="After: Stylish Bag!")
     st.button("Vote for EcoWarrior99 ❤️")
 
 def render_profile():
     st.header("👤 My Profile")
     
-    # Dashboard Section
     st.subheader("Your Impact")
     if st.session_state.scan_history:
         df = pd.DataFrame(st.session_state.scan_history)
@@ -264,14 +324,9 @@ def render_profile():
 
     st.divider()
     
-    # Subscription Section
     st.subheader("Subscription Status")
     if st.session_state.subscription == 'Free':
-        st.markdown("""
-        **Current Plan: Free**
-        - Basic Label Scanning
-        - Access Marketplace
-        """)
+        st.markdown("**Current Plan: Free**")
         if st.button("Upgrade to Needles (£4.99/mo)"):
             st.session_state.subscription = 'Needles'
             st.balloons()
@@ -282,7 +337,6 @@ def render_profile():
 
     st.divider()
     
-    # About Section
     with st.expander("About Unstitched"):
         st.write("Created by **White Fox Vols**")
         st.write("Team: **Katelyn, Olivia, Victoria, Kirstie**")
@@ -309,18 +363,27 @@ def render_onboarding():
         st.text_input("Password", type="password")
         if st.button("Sign In"):
             st.session_state.user_role = 'User'
+            # Default mock styles for login
+            st.session_state.user_styles = ["Vintage", "Casual"]
             st.rerun()
             
     with tab2:
         st.text_input("Name")
         st.date_input("Date of Birth")
+        
+        # New Recommendation Feature Input
+        styles = st.multiselect("Your Style (for recommendations)", 
+                              ["Vintage", "Streetwear", "Minimalist", "Chic", "Casual", "Boho"])
+        
         if st.button("Join the Movement"):
             st.session_state.user_role = 'User'
+            st.session_state.user_styles = styles
             st.rerun()
             
     st.divider()
     if st.button("Continue as Guest"):
         st.session_state.user_role = 'Guest'
+        st.session_state.user_styles = []
         st.rerun()
 
 # ==========================================
@@ -330,18 +393,15 @@ def render_onboarding():
 if st.session_state.user_role is None:
     render_onboarding()
 else:
-    # Header
     c1, c2 = st.columns([5, 1])
     with c1:
         st.markdown(f"**Hello, {st.session_state.user_role}!**")
     with c2:
-        # Accessibility Toggle
         access_label = "👁️" if not st.session_state.accessibility_mode else "Aa"
         if st.button(access_label, help="Toggle Accessibility Mode"):
             st.session_state.accessibility_mode = not st.session_state.accessibility_mode
             st.rerun()
 
-    # Mobile-style Bottom Nav
     selected = option_menu(
         menu_title=None,
         options=["Scan", "Shop", "News", "Board", "Me"],
