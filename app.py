@@ -16,75 +16,59 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- Mock Data (Replaces JSON files) ---
-BRANDS_DB = [
-    {"name": "FastFashionCo", "risk_score": 85, "origin": "Multiple High Risk Regions"},
-    {"name": "EcoThread", "risk_score": 10, "origin": "Portugal"},
-    {"name": "GenericBrand", "risk_score": 60, "origin": "China"},
-    {"name": "GreenStitch", "risk_score": 5, "origin": "UK"},
-    {"name": "UrbanTrend", "risk_score": 75, "origin": "Bangladesh"}
+# --- Mock Data ---
+NEWS_ARTICLES = [
+    {
+        "title": "The True Cost of Fast Fashion",
+        "content": "Every year, tens of millions of children are forced to make clothes for major brands. They are often paid little to no money.",
+        "stat": "138 Million Children Affected",
+        "source": "Unstitched Research"
+    },
+    {
+        "title": "Safety in the Workplace",
+        "content": "Terrible working conditions lead to injuries. Unstitched works to reduce these numbers and give children the right to education and play.",
+        "stat": "106.4 Million Injured Yearly",
+        "source": "Global Labor Stats"
+    }
+]
+
+MARKETPLACE_ITEMS = [
+    {"id": 1, "title": "Vintage Denim Jacket", "price": 25.00, "seller": "SarahSews", "icon": "🧥", "rating": "A", "desc": "Saved from landfill!"},
+    {"id": 2, "title": "Upcycled Tee", "price": 12.50, "seller": "GreenGuy", "icon": "👕", "rating": "A+", "desc": "Hand-painted design."},
+    {"id": 3, "title": "Chunky Knit Sweater", "price": 18.00, "seller": "RetroFit", "icon": "🧶", "rating": "B", "desc": "100% Wool."},
+    {"id": 4, "title": "Hemp Cargo Pants", "price": 30.00, "seller": "EcoWarrior", "icon": "👖", "rating": "A", "desc": "Super durable."},
 ]
 
 CHARITIES_DB = [
     {"name": "Unseen", "mission": "Working towards a world without slavery.", "id": "unseen"},
     {"name": "Hope for Justice", "mission": "Ending human trafficking and modern slavery.", "id": "hfj"},
-    {"name": "World Vision", "mission": "Helping the most vulnerable children overcome poverty.", "id": "wv"},
     {"name": "Save the Children", "mission": "Keeping children safe, healthy and learning.", "id": "stc"}
 ]
 
-MARKETPLACE_ITEMS = [
-    {"id": 1, "title": "Vintage Denim Jacket", "price": 25.00, "seller": "SarahSews", "icon": "🧥", "rating": "A"},
-    {"id": 2, "title": "Upcycled Tee", "price": 12.50, "seller": "GreenGuy", "icon": "👕", "rating": "A+"},
-    {"id": 3, "title": "Chunky Knit Sweater", "price": 18.00, "seller": "RetroFit", "icon": "🧶", "rating": "B"},
-    {"id": 4, "title": "Hemp Cargo Pants", "price": 30.00, "seller": "EcoWarrior", "icon": "👖", "rating": "A"},
-]
-
 # ==========================================
-# 2. UTILITY FUNCTIONS (Logic)
+# 2. UTILITY FUNCTIONS
 # ==========================================
 
 def calculate_ethical_score(brand, material, origin):
-    """Calculates a mock risk percentage (0-100%). Higher = Higher Risk."""
     base_risk = 0
+    # Simple logic to simulate the AI decision making
+    if "Polyester" in material: base_risk += 30
+    elif "Organic" in material: base_risk += 5
+    else: base_risk += 20
     
-    # Material Risk
-    if "Polyester" in material or "Rayon" in material:
-        base_risk += 30
-    elif "Organic" in material:
-        base_risk += 5
-    else:
-        base_risk += 20
-        
-    # Origin Risk
     high_risk_origins = ["China", "Bangladesh", "Vietnam"]
-    if any(country in origin for country in high_risk_origins):
-        base_risk += 40
-    elif "Portugal" in origin or "UK" in origin:
-        base_risk += 10
-    else:
-        base_risk += 25
-        
-    # Brand History Mock
-    if brand == "FastFashionCo": base_risk += 20
-    elif brand == "EcoThread": base_risk -= 10
-
+    if any(country in origin for country in high_risk_origins): base_risk += 40
+    elif "Portugal" in origin or "UK" in origin: base_risk += 10
+    else: base_risk += 25
+    
     return max(1, min(99, base_risk))
-
-def get_risk_explanation(score):
-    if score > 70:
-        return "High Risk: Indicators often linked to labour exploitation detected."
-    elif score > 40:
-        return "Medium Risk: Some transparency, but materials/origin pose concerns."
-    else:
-        return "Low Risk: Looks good! Likely a more ethical supply chain."
 
 def scan_label_mock(image):
     """Simulates AI extraction."""
-    time.sleep(1.5) # Simulate processing delay
-    
+    time.sleep(1.5) 
     materials = ["Cotton", "Polyester", "Rayon", "Organic Cotton", "Nylon"]
-    brands = ["FastFashionCo", "EcoThread", "UrbanTrend", "Unknown Label"]
-    origins = ["Made in China", "Made in Bangladesh", "Made in Portugal", "Made in UK"]
+    brands = ["FastFashionCo", "EcoThread", "UrbanTrend", "Shein-Like Brand", "H&M-Like Brand"]
+    origins = ["Made in China", "Made in Bangladesh", "Made in Portugal", "Made in UK", "Made in Vietnam"]
 
     return {
         "material": random.choice(materials),
@@ -96,7 +80,6 @@ def scan_label_mock(image):
 # 3. STATE & STYLING
 # ==========================================
 
-# Initialize State
 if 'user_role' not in st.session_state: st.session_state.user_role = None
 if 'subscription' not in st.session_state: st.session_state.subscription = 'Free'
 if 'accessibility_mode' not in st.session_state: st.session_state.accessibility_mode = False
@@ -105,36 +88,48 @@ if 'guest_scans' not in st.session_state: st.session_state.guest_scans = 0
 
 def inject_css():
     """Injects CSS based on accessibility settings."""
-    # Palette: Teal(#2A9D8F), Coral(#E76F51), Cream(#FFEEDB), DeepGreen(#264653)
-    
     is_access = st.session_state.accessibility_mode
-    font_size = "18px" if is_access else "16px"
-    bg_color = "#FFFFFF" if is_access else "#FFEEDB"
-    text_color = "#000000" if is_access else "#264653"
-    card_bg = "#F0F0F0" if is_access else "#FFFFFF"
-
+    
+    # Palette from slides + accessible mode
+    bg_color = "#FFFFFF" if is_access else "#FFEEDB" # Cream
+    text_color = "#000000" if is_access else "#264653" # Deep Green
+    accent_teal = "#2A9D8F"
+    accent_coral = "#E76F51"
+    
     st.markdown(f"""
     <style>
         .stApp {{ background-color: {bg_color}; }}
         h1, h2, h3, h4 {{ color: {text_color} !important; font-family: 'Helvetica Neue', sans-serif; }}
-        p, div, label, span, li {{ color: {text_color} !important; font-size: {font_size}; }}
+        p, div, label, span, li {{ color: {text_color} !important; font-size: {"18px" if is_access else "16px"}; }}
         
-        /* Mobile Nav & Buttons */
+        /* Custom Cards */
+        .stat-card {{
+            background-color: white; padding: 20px; border-radius: 15px;
+            border-left: 5px solid {accent_coral};
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 15px;
+        }}
+        .shop-card {{
+            background-color: white; padding: 15px; border-radius: 15px;
+            margin-bottom: 10px; box-shadow: 2px 2px 5px rgba(0,0,0,0.05);
+            text-align: center;
+        }}
+        .result-box {{
+            background-color: {accent_teal}; color: white; padding: 15px; 
+            border-radius: 10px; margin-bottom: 10px;
+        }}
+        .slogan-text {{
+            text-align: center; font-style: italic; color: {accent_coral}; font-weight: bold;
+        }}
+        
+        /* Buttons */
         .stButton>button {{
-            background-color: #2A9D8F; color: white !important;
+            background-color: {accent_teal}; color: white !important;
             border-radius: 25px; border: none; padding: 10px 24px;
-            width: 100%; font-weight: bold;
+            width: 100%; font-weight: bold; box-shadow: 0 4px 0 {text_color};
+            transition: all 0.2s;
         }}
-        .stButton>button:hover {{ background-color: #264653; }}
-        
-        /* Cards */
-        .custom-card {{
-            background-color: {card_bg}; padding: 15px; border-radius: 15px;
-            margin-bottom: 15px; box-shadow: 2px 2px 8px rgba(0,0,0,0.1);
-        }}
-        .risk-card {{
-            background-color: #FFEEDB; padding: 20px; border-radius: 15px;
-            border: 2px solid #264653; margin-bottom: 20px;
+        .stButton>button:active {{
+            transform: translateY(4px); box-shadow: none;
         }}
     </style>
     """, unsafe_allow_html=True)
@@ -147,213 +142,224 @@ inject_css()
 
 def render_scanner():
     st.header("📸 Behind the Label")
-    st.write("Scan a clothing label to reveal its true cost.")
+    st.caption("Identify materials, brands, and supply chain risks.")
     
+    # Guest Limit Logic
     if st.session_state.user_role == 'Guest' and st.session_state.guest_scans >= 10:
-        st.error("You've used your 10 free scans! Please sign up.")
+        st.error("You've used your 10 free scans! Join Unstitched to continue.")
         return
 
-    img_file = st.camera_input("Take a picture of the label")
+    img_file = st.camera_input("Scan your clothing label")
     
     if img_file:
-        with st.spinner("AI is analyzing text & materials..."):
+        with st.spinner("AI is analyzing supply chain data..."):
             data = scan_label_mock(img_file)
             risk = calculate_ethical_score(data['brand'], data['material'], data['origin'])
             
             if st.session_state.user_role == 'Guest':
                 st.session_state.guest_scans += 1
-            
-            # Save history
             st.session_state.scan_history.append({"risk": risk, "brand": data['brand']})
 
-        # Results
+        # --- RESULTS UI ---
         st.markdown(f"""
-        <div class="risk-card">
-            <h3 style="margin-top:0;">Analysis Complete</h3>
+        <div class="stat-card">
+            <h3 style="margin-top:0; color:#264653;">Analysis Results</h3>
             <p><strong>Brand:</strong> {data['brand']}</p>
-            <p><strong>Material:</strong> {data['material']}</p>
             <p><strong>Origin:</strong> {data['origin']}</p>
+            <p><strong>Material:</strong> {data['material']}</p>
         </div>
         """, unsafe_allow_html=True)
         
-        st.subheader("Ethical Risk Score")
         col1, col2 = st.columns([3, 1])
         col1.progress(risk / 100)
-        col2.markdown(f"**{risk}%**")
+        col2.metric("Risk", f"{risk}%")
         
-        st.info(f"💡 {get_risk_explanation(risk)}")
-        st.caption("Disclaimer: Percentages are estimates based on publicly available supply chain data.")
+        # Risk Logic
+        if risk > 60:
+            st.error(f"⚠️ High Risk of Child Labour. {data['origin']} has known supply chain issues.")
+        else:
+            st.success("✅ Lower Risk. This item likely has a cleaner supply chain.")
+            
+        st.info("💡 **Recommendation:** Don't throw this away! Even high-risk items can be upcycled to keep them out of landfill.")
+
+def render_news():
+    st.header("📰 Unstitched News")
+    st.markdown("<p class='slogan-text'>\"Scan the label, stop the labour.\"</p>", unsafe_allow_html=True)
+    
+    st.write("Stay informed about the fight against child labour.")
+    
+    for article in NEWS_ARTICLES:
+        st.markdown(f"""
+        <div class="stat-card">
+            <h4 style="color: #E76F51;">{article['stat']}</h4>
+            <h5 style="margin:0;">{article['title']}</h5>
+            <p style="font-size: 14px;">{article['content']}</p>
+            <p style="font-size: 12px; color: grey;">Source: {article['source']}</p>
+        </div>
+        """, unsafe_allow_html=True)
         
-        st.subheader("♻️ Better Options")
-        st.success(f"Don't throw it away! Check the Shop for {data['material']} upcycling ideas.")
+    st.subheader("How you can help")
+    st.write("By using Unstitched, you are choosing transparency over exploitation.")
+    
+    if st.button("Donate to Support Change"):
+        render_donation_modal()
+
+def render_donation_modal():
+    with st.expander("💖 Make a Donation", expanded=True):
+        st.write("Donations go to Unseen, Hope for Justice, and Save the Children.")
+        c1, c2, c3 = st.columns(3)
+        if c1.button("£2"): st.toast("Thank you for your £2 donation! 🎉")
+        if c2.button("£5"): st.toast("Thank you for your £5 donation! 🎉")
+        if c3.button("£10"): st.toast("Thank you for your £10 donation! 🎉")
 
 def render_shop():
     st.header("🛍️ Simple Shop")
-    st.write("Buy, sell, and swap pre-loved ethical fashion.")
-
-    if st.session_state.user_role == 'Guest':
-        st.warning("🔒 Guests can browse but cannot buy. Sign in to purchase!")
+    st.write("Buy, sell, and swap ethical fashion.")
     
-    with st.expander("Filter Options"):
-        st.selectbox("Size", ["S", "M", "L", "XL"])
-        st.selectbox("Material", ["Cotton", "Denim", "Wool"])
+    col1, col2 = st.columns([3, 1])
+    col1.text_input("Search items...", placeholder="Vintage denim, cotton tee...")
+    col2.selectbox("Sort", ["Newest", "Price: Low to High"])
 
     cols = st.columns(2)
     for i, item in enumerate(MARKETPLACE_ITEMS):
         with cols[i % 2]:
             st.markdown(f"""
-            <div class="custom-card">
-                <div style="font-size: 40px; text-align: center;">{item['icon']}</div>
-                <h4 style="margin: 5px 0; font-size: 16px;">{item['title']}</h4>
-                <p style="color: #E76F51; font-weight: bold;">£{item['price']:.2f}</p>
-                <p style="font-size: 12px; color: #666;">By: {item['seller']}</p>
-                <span style="background-color: #2A9D8F; color: white; padding: 2px 8px; border-radius: 8px; font-size: 10px;">Rating: {item['rating']}</span>
+            <div class="shop-card">
+                <div style="font-size: 40px;">{item['icon']}</div>
+                <div style="font-weight: bold;">{item['title']}</div>
+                <div style="color: #E76F51;">£{item['price']:.2f}</div>
+                <div style="font-size: 10px; color: grey;">{item['desc']}</div>
             </div>
             """, unsafe_allow_html=True)
-            if st.button(f"View", key=f"btn_{item['id']}"):
-                if st.session_state.user_role == 'Guest':
-                    st.toast("Sign in to buy!")
-                else:
-                    st.toast(f"Added {item['title']} to cart!")
-
-def render_donations():
-    st.header("🤝 Give Back")
-    st.write("Support charities fighting child labour.")
-    
-    if st.session_state.user_role == 'Guest':
-        st.error("Please sign in to donate.")
-        return
-
-    for char in CHARITIES_DB:
-        with st.container():
-            st.markdown(f"### {char['name']}")
-            st.write(char['mission'])
-            c1, c2, c3 = st.columns(3)
-            if c1.button("£5", key=f"d5_{char['id']}"): st.balloons()
-            if c2.button("£10", key=f"d10_{char['id']}"): st.balloons()
-            if c3.button("Custom", key=f"dc_{char['id']}"): st.write("Custom amount")
-            st.divider()
-
-def render_subscription():
-    st.header("🪡 Join 'Needles' Premium")
-    
-    c1, c2 = st.columns([2, 1])
-    with c1:
-        st.markdown("""
-        - 🎨 **Colour Analysis Tool**
-        - 👗 **Outfit Planner**
-        - 🚨 **Brand Alerts**
-        - 🏆 **Notice Board Access**
-        - ❤️ **£1.50/mo to charity**
-        """)
-    with c2:
-        st.markdown("## £4.99")
-        st.caption("per month")
-        if st.session_state.subscription == 'Free':
-            if st.button("Start Trial"):
-                st.session_state.subscription = 'Needles'
-                st.success("Welcome to the club! 🎉")
-                time.sleep(1)
-                st.rerun()
-        else:
-            st.success("You are a Member!")
-
-def render_dashboard():
-    st.header("📊 Impact Dashboard")
-    if not st.session_state.scan_history:
-        st.info("No scan data yet. Go scan some labels!")
-        return
-
-    df = pd.DataFrame(st.session_state.scan_history)
-    avg_risk = df['risk'].mean()
-    st.metric("Average Risk Score Encountered", f"{avg_risk:.1f}%")
-
-    fig = px.bar(df, x='brand', y='risk', title="Risk Score by Brand", color='risk', 
-                 color_continuous_scale=['#2A9D8F', '#E76F51'])
-    st.plotly_chart(fig, use_container_width=True)
+            if st.button("View", key=f"btn_{item['id']}"):
+                st.toast(f"Opening details for {item['title']}...")
 
 def render_notice_board():
-    st.header("📌 Community Notice Board")
+    st.header("📌 Community Board")
+    
     if st.session_state.subscription != 'Needles':
-        st.warning("This area is for 'Needles' subscribers only.")
-        st.info("Unlock it in the Profile tab!")
+        st.warning("🔒 This area is for 'Needles' subscribers only.")
+        st.image("https://placehold.co/600x200/E76F51/FFF?text=Join+Needles+to+Access", use_container_width=True)
         return
 
-    st.subheader("Weekly Challenge: Denim")
+    st.subheader("Weekly Upcycling Competition")
+    st.write("Theme: **Denim Transformation**")
+    
     c1, c2 = st.columns(2)
-    with c1: st.image("https://placehold.co/300x300/264653/FFF?text=Before", caption="User: EcoWarrior99")
-    with c2: 
-        st.image("https://placehold.co/300x300/E76F51/FFF?text=After", caption="Tote Bag Result!")
-        st.button("Vote ❤️")
+    with c1: st.image("https://placehold.co/300x300/264653/FFF?text=Before", caption="Old Jeans")
+    with c2: st.image("https://placehold.co/300x300/E76F51/FFF?text=After", caption="New Tote Bag!")
+    st.button("Vote for EcoWarrior99 ❤️")
+
+def render_profile():
+    st.header("👤 My Profile")
+    
+    # Dashboard Section
+    st.subheader("Your Impact")
+    if st.session_state.scan_history:
+        df = pd.DataFrame(st.session_state.scan_history)
+        safe_count = len(df[df['risk'] < 40])
+        st.metric("Ethical Choices Made", safe_count, delta=f"{len(df)} total scans")
+    else:
+        st.info("Start scanning labels to track your impact!")
+
+    st.divider()
+    
+    # Subscription Section
+    st.subheader("Subscription Status")
+    if st.session_state.subscription == 'Free':
+        st.markdown("""
+        **Current Plan: Free**
+        - Basic Label Scanning
+        - Access Marketplace
+        """)
+        if st.button("Upgrade to Needles (£4.99/mo)"):
+            st.session_state.subscription = 'Needles'
+            st.balloons()
+            st.rerun()
+    else:
+        st.success("You are a Needles Member! 🪡")
+        st.caption("£1.50 of your sub goes to charity monthly.")
+
+    st.divider()
+    
+    # About Section
+    with st.expander("About Unstitched"):
+        st.write("Created by **White Fox Vols**")
+        st.write("Team: **Katelyn, Olivia, Victoria, Kirstie**")
+        st.caption("© 2024 Unstitched. All rights reserved.")
+        
+    if st.button("Log Out", type="secondary"):
+        st.session_state.user_role = None
+        st.rerun()
+
+# ==========================================
+# 5. ONBOARDING
+# ==========================================
 
 def render_onboarding():
-    st.image("https://placehold.co/600x200/2A9D8F/FFF?text=Unstitched", use_container_width=True)
-    st.title("Wear Your Values.")
+    st.markdown("<div style='text-align: center; font-size: 60px;'>🧵</div>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center; color: #264653;'>UNSTITCHED</h1>", unsafe_allow_html=True)
+    st.markdown("<h3 style='text-align: center; color: #E76F51;'>Scan the label,<br>stop the labour.</h3>", unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    tab1, tab2 = st.tabs(["Sign In", "New Account"])
     
-    tab1, tab2 = st.tabs(["Sign In", "Sign Up"])
     with tab1:
-        if st.button("Sign In (Demo)"):
+        st.text_input("Email")
+        st.text_input("Password", type="password")
+        if st.button("Sign In"):
             st.session_state.user_role = 'User'
             st.rerun()
+            
     with tab2:
         st.text_input("Name")
-        st.multiselect("Priorities", ["Child Labour", "Sustainability", "Price"])
-        if st.button("Create Account"):
+        st.date_input("Date of Birth")
+        if st.button("Join the Movement"):
             st.session_state.user_role = 'User'
             st.rerun()
             
     st.divider()
-    if st.button("Continue as Guest", type="secondary"):
+    if st.button("Continue as Guest"):
         st.session_state.user_role = 'Guest'
         st.rerun()
 
 # ==========================================
-# 5. MAIN APP EXECUTION
+# 6. MAIN APP LOGIC
 # ==========================================
 
 if st.session_state.user_role is None:
     render_onboarding()
 else:
-    # Top Bar
+    # Header
     c1, c2 = st.columns([5, 1])
     with c1:
-        st.markdown(f"**Hi, {st.session_state.user_role}!**")
-        if st.session_state.subscription == 'Needles': st.badge("Needles Member 🪡")
+        st.markdown(f"**Hello, {st.session_state.user_role}!**")
     with c2:
         # Accessibility Toggle
-        on = st.toggle('Aa', value=st.session_state.accessibility_mode)
-        if on != st.session_state.accessibility_mode:
-            st.session_state.accessibility_mode = on
+        access_label = "👁️" if not st.session_state.accessibility_mode else "Aa"
+        if st.button(access_label, help="Toggle Accessibility Mode"):
+            st.session_state.accessibility_mode = not st.session_state.accessibility_mode
             st.rerun()
 
-    # Navigation
+    # Mobile-style Bottom Nav
     selected = option_menu(
         menu_title=None,
-        options=["Scan", "Shop", "Board", "Donate", "Profile"],
-        icons=["camera", "bag", "clipboard", "heart", "person"],
+        options=["Scan", "Shop", "News", "Board", "Me"],
+        icons=["camera", "bag", "newspaper", "clipboard", "person"],
         default_index=0,
         orientation="horizontal",
         styles={
             "container": {"padding": "0!important", "background-color": "transparent"},
             "icon": {"color": "#E76F51", "font-size": "18px"}, 
-            "nav-link": {"font-size": "12px", "text-align": "center", "margin": "0px"},
+            "nav-link": {"font-size": "11px", "text-align": "center", "margin": "0px"},
             "nav-link-selected": {"background-color": "#264653"},
         }
     )
-
-    st.divider()
+    
+    st.markdown("<hr style='margin-top: 0; margin-bottom: 20px;'>", unsafe_allow_html=True)
 
     if selected == "Scan": render_scanner()
     elif selected == "Shop": render_shop()
+    elif selected == "News": render_news()
     elif selected == "Board": render_notice_board()
-    elif selected == "Donate": render_donations()
-    elif selected == "Profile":
-        render_dashboard()
-        st.divider()
-        render_subscription()
-        if st.button("Log Out"):
-            st.session_state.user_role = None
-            st.rerun()
-            
-    st.markdown("<br><br><br>", unsafe_allow_html=True)
-    st.caption("Unstitched © 2024. Building a better future, one thread at a time.")
+    elif selected == "Me": render_profile()
