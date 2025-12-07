@@ -90,48 +90,54 @@ def scan_label_mock(image):
     }
 
 def scan_label_real(image_file, api_key):
-    """Uses Google Gemini to actually read the label."""
+    """Uses Google Gemini to actually read the label. Tries multiple models."""
     # Configure API
     genai.configure(api_key=api_key)
     
-    # Use the stable Flash model. 
-    # If this fails, it usually means the key is invalid or the library is outdated.
-    model_name = 'gemini-1.5-flash'
+    # List of models to try in order. If one fails (404), we try the next.
+    models_to_try = [
+        'gemini-1.5-flash', 
+        'gemini-1.5-flash-latest', 
+        'gemini-1.5-pro',
+        'gemini-pro',  # The reliable fallback
+        'gemini-pro-vision'
+    ]
     
-    try:
-        model = genai.GenerativeModel(model_name)
-        img = Image.open(image_file)
-        
-        prompt = """
-        Analyze this clothing label. Extract the following information in strict format:
-        1. Brand Name (if visible, otherwise say 'Unknown Brand')
-        2. Country of Origin (e.g., Made in China)
-        3. Primary Material (e.g., 100% Cotton, Polyester)
-        
-        Return the result as a simple string separated by pipes like this:
-        Brand|Origin|Material
-        """
-        
-        response = model.generate_content([prompt, img])
-        text = response.text.strip()
-        
-        # Simple parsing
-        parts = text.split('|')
-        if len(parts) >= 3:
-            return {
-                "brand": parts[0].strip(),
-                "origin": parts[1].strip(),
-                "material": parts[2].strip(),
-                "is_real": True
-            }
-        else:
-            # Fallback if AI replies but format is unexpected
-            return scan_label_mock(image_file)
+    last_error = None
+    img = Image.open(image_file)
+    
+    prompt = """
+    Analyze this clothing label. Extract the following information in strict format:
+    1. Brand Name (if visible, otherwise say 'Unknown Brand')
+    2. Country of Origin (e.g., Made in China)
+    3. Primary Material (e.g., 100% Cotton, Polyester)
+    
+    Return the result as a simple string separated by pipes like this:
+    Brand|Origin|Material
+    """
+    
+    for model_name in models_to_try:
+        try:
+            model = genai.GenerativeModel(model_name)
+            response = model.generate_content([prompt, img])
+            text = response.text.strip()
             
-    except Exception as e:
-        # Show the EXACT error to the user for debugging
-        st.error(f"AI Connection Error: {str(e)}")
-        return scan_label_mock(image_file)
+            # Simple parsing
+            parts = text.split('|')
+            if len(parts) >= 3:
+                return {
+                    "brand": parts[0].strip(),
+                    "origin": parts[1].strip(),
+                    "material": parts[2].strip(),
+                    "is_real": True
+                }
+        except Exception as e:
+            last_error = e
+            continue # Try the next model in the list
+            
+    # If the loop finishes and nothing worked:
+    st.error(f"AI Connection Error (Tried all models): {str(last_error)}")
+    return scan_label_mock(image_file)
 
 def get_recommendations():
     """Logic to suggest items based on history and preferences."""
