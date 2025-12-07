@@ -4,6 +4,8 @@ import random
 import pandas as pd
 import plotly.express as px
 from streamlit_option_menu import option_menu
+import google.generativeai as genai
+from PIL import Image
 
 # ==========================================
 # 1. CONFIGURATION & DATA MOCKS
@@ -58,19 +60,23 @@ CHARITIES_DB = [
 
 def calculate_ethical_score(brand, material, origin):
     base_risk = 0
-    if "Polyester" in material: base_risk += 30
-    elif "Organic" in material: base_risk += 5
+    # Material Risk
+    mat_lower = material.lower()
+    if "polyester" in mat_lower or "nylon" in mat_lower or "acrylic" in mat_lower: base_risk += 30
+    elif "organic" in mat_lower or "recycled" in mat_lower: base_risk += 5
     else: base_risk += 20
     
-    high_risk_origins = ["China", "Bangladesh", "Vietnam"]
-    if any(country in origin for country in high_risk_origins): base_risk += 40
-    elif "Portugal" in origin or "UK" in origin: base_risk += 10
+    # Origin Risk
+    origin_lower = origin.lower()
+    high_risk_origins = ["china", "bangladesh", "vietnam", "india", "cambodia"]
+    if any(country in origin_lower for country in high_risk_origins): base_risk += 40
+    elif "portugal" in origin_lower or "uk" in origin_lower or "italy" in origin_lower: base_risk += 10
     else: base_risk += 25
     
     return max(1, min(99, base_risk))
 
 def scan_label_mock(image):
-    """Simulates AI extraction."""
+    """Simulates AI extraction if no API key is present."""
     time.sleep(1.5) 
     materials = ["Cotton", "Polyester", "Rayon", "Organic Cotton", "Nylon", "Denim", "Wool"]
     brands = ["FastFashionCo", "EcoThread", "UrbanTrend", "Shein-Like Brand", "H&M-Like Brand"]
@@ -79,43 +85,73 @@ def scan_label_mock(image):
     return {
         "material": random.choice(materials),
         "brand": random.choice(brands),
-        "origin": random.choice(origins)
+        "origin": random.choice(origins),
+        "is_real": False
     }
+
+def scan_label_real(image_file, api_key):
+    """Uses Google Gemini to actually read the label."""
+    try:
+        genai.configure(api_key=api_key)
+        # Use Gemini 1.5 Flash (Fast & Cheap/Free)
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        
+        # Open image with PIL
+        img = Image.open(image_file)
+        
+        prompt = """
+        Analyze this clothing label. Extract the following information in strict format:
+        1. Brand Name (if visible, otherwise say 'Unknown Brand')
+        2. Country of Origin (e.g., Made in China)
+        3. Primary Material (e.g., 100% Cotton, Polyester)
+        
+        Return the result as a simple string separated by pipes like this:
+        Brand|Origin|Material
+        """
+        
+        response = model.generate_content([prompt, img])
+        text = response.text.strip()
+        
+        # Simple parsing
+        parts = text.split('|')
+        if len(parts) >= 3:
+            return {
+                "brand": parts[0].strip(),
+                "origin": parts[1].strip(),
+                "material": parts[2].strip(),
+                "is_real": True
+            }
+        else:
+            # Fallback if AI replies chatted text
+            return scan_label_mock(image_file)
+            
+    except Exception as e:
+        st.error(f"AI Error: {e}")
+        return scan_label_mock(image_file)
 
 def get_recommendations():
     """Logic to suggest items based on history and preferences."""
     all_items = pd.DataFrame(MARKETPLACE_ITEMS)
-    
-    # 1. Get User Preferences
     user_styles = st.session_state.get('user_styles', [])
-    
-    # 2. Get Scan History Materials
     scanned_materials = [s['material'] for s in st.session_state.scan_history] if st.session_state.scan_history else []
     
     scored_items = []
     
     for item in MARKETPLACE_ITEMS:
         score = 0
-        # Score based on Style Preference
-        if item['style'] in user_styles:
-            score += 3
-            
-        # Score based on Scan History (Suggesting alternatives to what they buy)
-        # e.g. if they scan Denim, show Ethical Denim
-        if item['material'] in scanned_materials:
-            score += 2
+        if item['style'] in user_styles: score += 3
+        
+        # Loose matching for material
+        for scan_mat in scanned_materials:
+            if scan_mat.split(' ')[-1].lower() in item['material'].lower():
+                score += 2
             
         scored_items.append((score, item))
     
-    # Sort by score descending
     scored_items.sort(key=lambda x: x[0], reverse=True)
-    
-    # Return top 3 if they have a score > 0, otherwise return random 3
     top_picks = [item for score, item in scored_items if score > 0]
     
-    if not top_picks:
-        return random.sample(MARKETPLACE_ITEMS, 3)
-    
+    if not top_picks: return random.sample(MARKETPLACE_ITEMS, 3)
     return top_picks[:3]
 
 # ==========================================
@@ -128,6 +164,7 @@ if 'accessibility_mode' not in st.session_state: st.session_state.accessibility_
 if 'scan_history' not in st.session_state: st.session_state.scan_history = []
 if 'guest_scans' not in st.session_state: st.session_state.guest_scans = 0
 if 'user_styles' not in st.session_state: st.session_state.user_styles = []
+if 'api_key' not in st.session_state: st.session_state.api_key = ""
 
 def inject_css():
     """Injects CSS based on accessibility settings."""
@@ -187,16 +224,35 @@ def render_scanner():
         st.error("You've used your 10 free scans! Join Unstitched to continue.")
         return
 
+    # --- API KEY HANDLING (SECRETS + INPUT) ---
+    # 1. Try to get key from Streamlit Secrets (Cloud)
+    if "GOOGLE_API_KEY" in st.secrets:
+        st.session_state.api_key = st.secrets["GOOGLE_API_KEY"]
+    
+    # 2. If not in secrets, show input box
+    if not st.session_state.api_key:
+        with st.expander("⚙️ AI Settings (Required for Real Mode)", expanded=True):
+            api_input = st.text_input("Enter Google Gemini API Key:", type="password")
+            if api_input:
+                st.session_state.api_key = api_input
+                st.success("Key saved!")
+
     img_file = st.camera_input("Scan your clothing label")
     
     if img_file:
         with st.spinner("AI is analyzing supply chain data..."):
-            data = scan_label_mock(img_file)
+            
+            if st.session_state.api_key:
+                # REAL SCAN
+                data = scan_label_real(img_file, st.session_state.api_key)
+            else:
+                # MOCK SCAN (Fallback)
+                data = scan_label_mock(img_file)
+                
             risk = calculate_ethical_score(data['brand'], data['material'], data['origin'])
             
             if st.session_state.user_role == 'Guest':
                 st.session_state.guest_scans += 1
-            # Add material to history for recommendation engine
             st.session_state.scan_history.append({"risk": risk, "brand": data['brand'], "material": data['material']})
 
         # --- RESULTS UI ---
@@ -209,13 +265,16 @@ def render_scanner():
         </div>
         """, unsafe_allow_html=True)
         
+        if not data.get('is_real'):
+            st.caption("⚠️ Demo Mode. Add API key for real analysis.")
+        
         col1, col2 = st.columns([3, 1])
         col1.progress(risk / 100)
         col2.metric("Risk", f"{risk}%")
         
         if risk > 60:
             st.error(f"⚠️ High Risk of Child Labour. {data['origin']} has known supply chain issues.")
-            st.info(f"💡 We found better ethical {data['material']} items in the Shop for you!")
+            st.info(f"💡 We found better ethical items in the Shop based on this scan!")
         else:
             st.success("✅ Lower Risk. This item likely has a cleaner supply chain.")
 
