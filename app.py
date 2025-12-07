@@ -11,6 +11,11 @@ from PIL import Image
 # 1. CONFIGURATION & DATA MOCKS
 # ==========================================
 
+# --- ⚠️ PASTE YOUR API KEY BELOW FOR TESTING ---
+# If your secrets aren't working, paste the key inside the quotes below.
+# Example: MANUAL_TEST_KEY = "AIzaSy..."
+MANUAL_TEST_KEY = "PASTE_YOUR_KEY_HERE" 
+
 st.set_page_config(
     page_title="Unstitched",
     page_icon="🧵",
@@ -90,54 +95,48 @@ def scan_label_mock(image):
     }
 
 def scan_label_real(image_file, api_key):
-    """Uses Google Gemini to actually read the label. Tries multiple models."""
+    """Uses Google Gemini to actually read the label."""
     # Configure API
     genai.configure(api_key=api_key)
     
-    # List of models to try in order. If one fails (404), we try the next.
-    models_to_try = [
-        'gemini-1.5-flash', 
-        'gemini-1.5-flash-latest', 
-        'gemini-1.5-pro',
-        'gemini-pro',  # The reliable fallback
-        'gemini-pro-vision'
-    ]
+    # Use only the most reliable model for this task to avoid 404s on deprecated models
+    model_name = 'gemini-1.5-flash'
     
-    last_error = None
-    img = Image.open(image_file)
-    
-    prompt = """
-    Analyze this clothing label. Extract the following information in strict format:
-    1. Brand Name (if visible, otherwise say 'Unknown Brand')
-    2. Country of Origin (e.g., Made in China)
-    3. Primary Material (e.g., 100% Cotton, Polyester)
-    
-    Return the result as a simple string separated by pipes like this:
-    Brand|Origin|Material
-    """
-    
-    for model_name in models_to_try:
-        try:
-            model = genai.GenerativeModel(model_name)
-            response = model.generate_content([prompt, img])
-            text = response.text.strip()
+    try:
+        model = genai.GenerativeModel(model_name)
+        img = Image.open(image_file)
+        
+        prompt = """
+        Analyze this clothing label. Extract the following information in strict format:
+        1. Brand Name (if visible, otherwise say 'Unknown Brand')
+        2. Country of Origin (e.g., Made in China)
+        3. Primary Material (e.g., 100% Cotton, Polyester)
+        
+        Return the result as a simple string separated by pipes like this:
+        Brand|Origin|Material
+        """
+        
+        response = model.generate_content([prompt, img])
+        text = response.text.strip()
+        
+        # Simple parsing
+        parts = text.split('|')
+        if len(parts) >= 3:
+            return {
+                "brand": parts[0].strip(),
+                "origin": parts[1].strip(),
+                "material": parts[2].strip(),
+                "is_real": True
+            }
+        else:
+            # Fallback if AI replies but format is unexpected
+            return scan_label_mock(image_file)
             
-            # Simple parsing
-            parts = text.split('|')
-            if len(parts) >= 3:
-                return {
-                    "brand": parts[0].strip(),
-                    "origin": parts[1].strip(),
-                    "material": parts[2].strip(),
-                    "is_real": True
-                }
-        except Exception as e:
-            last_error = e
-            continue # Try the next model in the list
-            
-    # If the loop finishes and nothing worked:
-    st.error(f"AI Connection Error (Tried all models): {str(last_error)}")
-    return scan_label_mock(image_file)
+    except Exception as e:
+        # Show the EXACT error to the user for debugging
+        st.error(f"AI Connection Error: {str(e)}")
+        st.info("Tip: Ensure your API key has 'Generative Language API' enabled in Google Cloud Console.")
+        return scan_label_mock(image_file)
 
 def get_recommendations():
     """Logic to suggest items based on history and preferences."""
@@ -234,12 +233,17 @@ def render_scanner():
         st.error("You've used your 10 free scans! Join Unstitched to continue.")
         return
 
-    # --- API KEY HANDLING (SECRETS + INPUT) ---
+    # --- API KEY HANDLING (PRIORITY: MANUAL > SECRETS > INPUT) ---
+    
+    # 0. Check Manual Test Key
+    if MANUAL_TEST_KEY and "PASTE_YOUR_KEY_HERE" not in MANUAL_TEST_KEY:
+         st.session_state.api_key = MANUAL_TEST_KEY
+
     # 1. Try to get key from Streamlit Secrets (Cloud)
-    if "GOOGLE_API_KEY" in st.secrets:
+    elif "GOOGLE_API_KEY" in st.secrets:
         st.session_state.api_key = st.secrets["GOOGLE_API_KEY"]
     
-    # 2. If not in secrets, show input box
+    # 2. If not in secrets/manual, show input box
     if not st.session_state.api_key:
         with st.expander("⚙️ AI Settings (Required for Real Mode)", expanded=True):
             api_input = st.text_input("Enter Google Gemini API Key:", type="password")
@@ -248,7 +252,6 @@ def render_scanner():
                 st.success("Key saved!")
 
     # --- INPUT METHOD SELECTION ---
-    # Allowing toggle helps users on mobile default to the correct camera via the "Upload" dialog
     input_method = st.radio("Choose Input Method:", ["Live Camera", "Upload Photo"], horizontal=True, label_visibility="collapsed")
 
     img_file = None
