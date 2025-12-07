@@ -91,46 +91,47 @@ def scan_label_mock(image):
 
 def scan_label_real(image_file, api_key):
     """Uses Google Gemini to actually read the label."""
+    # Configure API
     genai.configure(api_key=api_key)
     
-    # Try multiple models in case one is deprecated or not available
-    models_to_try = ['gemini-1.5-flash', 'gemini-1.5-flash-latest', 'gemini-1.5-pro', 'gemini-pro-vision']
+    # Use the stable Flash model. 
+    # If this fails, it usually means the key is invalid or the library is outdated.
+    model_name = 'gemini-1.5-flash'
     
-    last_error = None
-    
-    img = Image.open(image_file)
-    prompt = """
-    Analyze this clothing label. Extract the following information in strict format:
-    1. Brand Name (if visible, otherwise say 'Unknown Brand')
-    2. Country of Origin (e.g., Made in China)
-    3. Primary Material (e.g., 100% Cotton, Polyester)
-    
-    Return the result as a simple string separated by pipes like this:
-    Brand|Origin|Material
-    """
-
-    for model_name in models_to_try:
-        try:
-            model = genai.GenerativeModel(model_name)
-            response = model.generate_content([prompt, img])
-            text = response.text.strip()
+    try:
+        model = genai.GenerativeModel(model_name)
+        img = Image.open(image_file)
+        
+        prompt = """
+        Analyze this clothing label. Extract the following information in strict format:
+        1. Brand Name (if visible, otherwise say 'Unknown Brand')
+        2. Country of Origin (e.g., Made in China)
+        3. Primary Material (e.g., 100% Cotton, Polyester)
+        
+        Return the result as a simple string separated by pipes like this:
+        Brand|Origin|Material
+        """
+        
+        response = model.generate_content([prompt, img])
+        text = response.text.strip()
+        
+        # Simple parsing
+        parts = text.split('|')
+        if len(parts) >= 3:
+            return {
+                "brand": parts[0].strip(),
+                "origin": parts[1].strip(),
+                "material": parts[2].strip(),
+                "is_real": True
+            }
+        else:
+            # Fallback if AI replies but format is unexpected
+            return scan_label_mock(image_file)
             
-            # Simple parsing
-            parts = text.split('|')
-            if len(parts) >= 3:
-                return {
-                    "brand": parts[0].strip(),
-                    "origin": parts[1].strip(),
-                    "material": parts[2].strip(),
-                    "is_real": True
-                }
-        except Exception as e:
-            last_error = e
-            continue # Try the next model
-            
-    # If all models fail
-    st.error(f"AI Connection Error (All models failed): {last_error}")
-    return scan_label_mock(image_file)
+    except Exception as e:
+        # Show the EXACT error to the user for debugging
+        st.error(f"AI Connection Error: {str(e)}")
+        return scan_label_mock(image_file)
 
 def get_recommendations():
     """Logic to suggest items based on history and preferences."""
@@ -240,7 +241,16 @@ def render_scanner():
                 st.session_state.api_key = api_input
                 st.success("Key saved!")
 
-    img_file = st.camera_input("Scan your clothing label")
+    # --- INPUT METHOD SELECTION ---
+    # Allowing toggle helps users on mobile default to the correct camera via the "Upload" dialog
+    input_method = st.radio("Choose Input Method:", ["Live Camera", "Upload Photo"], horizontal=True, label_visibility="collapsed")
+
+    img_file = None
+    if input_method == "Live Camera":
+        img_file = st.camera_input("Scan your clothing label")
+    else:
+        st.info("Tip: On mobile, 'Upload' lets you use your back camera easily.")
+        img_file = st.file_uploader("Upload or take a photo", type=['jpg', 'jpeg', 'png'])
     
     if img_file:
         with st.spinner("AI is analyzing supply chain data..."):
