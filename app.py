@@ -11,10 +11,10 @@ from PIL import Image
 # 1. CONFIGURATION & DATA MOCKS
 # ==========================================
 
-# --- ⚠️ PASTE YOUR API KEY BELOW FOR TESTING ---
-# If your secrets aren't working, paste the key inside the quotes below.
-# Example: MANUAL_TEST_KEY = "AIzaSy..."
-MANUAL_TEST_KEY = "AIzaSyC9ob46WaLkD7sGSS_8ExSpVq1TtS593Kw" 
+# --- ⚠️ SECURITY WARNING ---
+# NEVER paste your actual API key here if you are publishing to GitHub.
+# Use Streamlit Secrets or the Input Box in the app instead.
+MANUAL_TEST_KEY = "" 
 
 st.set_page_config(
     page_title="Unstitched",
@@ -236,7 +236,7 @@ def render_scanner():
     # --- API KEY HANDLING (PRIORITY: MANUAL > SECRETS > INPUT) ---
     
     # 0. Check Manual Test Key
-    if MANUAL_TEST_KEY and "PASTE_YOUR_KEY_HERE" not in MANUAL_TEST_KEY:
+    if MANUAL_TEST_KEY:
          st.session_state.api_key = MANUAL_TEST_KEY
 
     # 1. Try to get key from Streamlit Secrets (Cloud)
