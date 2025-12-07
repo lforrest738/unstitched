@@ -14,7 +14,7 @@ from PIL import Image
 # --- ⚠️ PASTE YOUR API KEY BELOW FOR TESTING ---
 # If your secrets aren't working, paste the key inside the quotes below.
 # Example: MANUAL_TEST_KEY = "AIzaSy..."
-MANUAL_TEST_KEY = "PASTE_YOUR_KEY_HERE" 
+MANUAL_TEST_KEY = "AIzaSyC9ob46WaLkD7sGSS_8ExSpVq1TtS593Kw" 
 
 st.set_page_config(
     page_title="Unstitched",
