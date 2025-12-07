@@ -11,11 +11,6 @@ from PIL import Image
 # 1. CONFIGURATION & DATA MOCKS
 # ==========================================
 
-# --- ⚠️ SECURITY WARNING ---
-# NEVER paste your actual API key here if you are publishing to GitHub.
-# Use Streamlit Secrets or the Input Box in the app instead.
-MANUAL_TEST_KEY = "" 
-
 st.set_page_config(
     page_title="Unstitched",
     page_icon="🧵",
@@ -99,44 +94,70 @@ def scan_label_real(image_file, api_key):
     # Configure API
     genai.configure(api_key=api_key)
     
-    # Use only the most reliable model for this task to avoid 404s on deprecated models
-    model_name = 'gemini-1.5-flash'
+    # Try multiple models to find one that works for your key
+    models_to_try = [
+        'gemini-1.5-flash',
+        'gemini-1.5-pro',
+        'gemini-pro',
+        'gemini-pro-vision'
+    ]
     
-    try:
-        model = genai.GenerativeModel(model_name)
-        img = Image.open(image_file)
-        
-        prompt = """
-        Analyze this clothing label. Extract the following information in strict format:
-        1. Brand Name (if visible, otherwise say 'Unknown Brand')
-        2. Country of Origin (e.g., Made in China)
-        3. Primary Material (e.g., 100% Cotton, Polyester)
-        
-        Return the result as a simple string separated by pipes like this:
-        Brand|Origin|Material
-        """
-        
-        response = model.generate_content([prompt, img])
-        text = response.text.strip()
-        
-        # Simple parsing
-        parts = text.split('|')
-        if len(parts) >= 3:
-            return {
-                "brand": parts[0].strip(),
-                "origin": parts[1].strip(),
-                "material": parts[2].strip(),
-                "is_real": True
-            }
-        else:
-            # Fallback if AI replies but format is unexpected
-            return scan_label_mock(image_file)
+    last_error = None
+    img = Image.open(image_file)
+    
+    prompt = """
+    Analyze this clothing label. Extract the following information in strict format:
+    1. Brand Name (if visible, otherwise say 'Unknown Brand')
+    2. Country of Origin (e.g., Made in China)
+    3. Primary Material (e.g., 100% Cotton, Polyester)
+    
+    Return the result as a simple string separated by pipes like this:
+    Brand|Origin|Material
+    """
+    
+    for model_name in models_to_try:
+        try:
+            model = genai.GenerativeModel(model_name)
+            response = model.generate_content([prompt, img])
+            text = response.text.strip()
             
-    except Exception as e:
-        # Show the EXACT error to the user for debugging
-        st.error(f"AI Connection Error: {str(e)}")
-        st.info("Tip: Ensure your API key has 'Generative Language API' enabled in Google Cloud Console.")
-        return scan_label_mock(image_file)
+            # Simple parsing
+            parts = text.split('|')
+            if len(parts) >= 3:
+                return {
+                    "brand": parts[0].strip(),
+                    "origin": parts[1].strip(),
+                    "material": parts[2].strip(),
+                    "is_real": True
+                }
+        except Exception as e:
+            last_error = e
+            # Continue to next model loop
+            continue
+            
+    # If all models fail, determine the type of error to give helpful feedback
+    error_msg = str(last_error)
+    st.error(f"AI Connection Error: {error_msg}")
+    
+    # Check for specific "Service Not Enabled" error (403 or PermissionDenied)
+    if "403" in error_msg or "Generative Language API" in error_msg or "PERMISSION_DENIED" in error_msg:
+        st.markdown("""
+        <div style="background-color: #ffe6e6; padding: 15px; border-radius: 10px; border: 1px solid #ff0000; color: #cc0000; margin-bottom: 20px;">
+            <h4>🚨 Action Required: Enable the API</h4>
+            <p>Your API key is valid, but the "Generative Language API" service is turned off in your Google Cloud Console.</p>
+            <p><strong>To fix this immediately:</strong></p>
+            <ol>
+                <li><a href="https://console.cloud.google.com/apis/library/generativelanguage.googleapis.com" target="_blank" style="font-weight:bold; color: #cc0000; text-decoration: underline;">Click this link to open Google Cloud Console</a></li>
+                <li>Select the project associated with your API key.</li>
+                <li>Click the blue <strong>"ENABLE"</strong> button.</li>
+                <li>Wait 30 seconds and try scanning again.</li>
+            </ol>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.info("Tip: If you are seeing 404 errors, your key might not have access to the specific model version.")
+        
+    return scan_label_mock(image_file)
 
 def get_recommendations():
     """Logic to suggest items based on history and preferences."""
@@ -233,23 +254,19 @@ def render_scanner():
         st.error("You've used your 10 free scans! Join Unstitched to continue.")
         return
 
-    # --- API KEY HANDLING (PRIORITY: MANUAL > SECRETS > INPUT) ---
-    
-    # 0. Check Manual Test Key
-    if MANUAL_TEST_KEY:
-         st.session_state.api_key = MANUAL_TEST_KEY
-
+    # --- API KEY HANDLING (PRIORITY: SECRETS > INPUT) ---
     # 1. Try to get key from Streamlit Secrets (Cloud)
-    elif "GOOGLE_API_KEY" in st.secrets:
+    if "GOOGLE_API_KEY" in st.secrets:
         st.session_state.api_key = st.secrets["GOOGLE_API_KEY"]
     
-    # 2. If not in secrets/manual, show input box
+    # 2. If not in secrets, show input box
     if not st.session_state.api_key:
         with st.expander("⚙️ AI Settings (Required for Real Mode)", expanded=True):
+            st.info("No secret found. Enter key manually below for this session.")
             api_input = st.text_input("Enter Google Gemini API Key:", type="password")
             if api_input:
                 st.session_state.api_key = api_input
-                st.success("Key saved!")
+                st.success("Key saved for this session!")
 
     # --- INPUT METHOD SELECTION ---
     input_method = st.radio("Choose Input Method:", ["Live Camera", "Upload Photo"], horizontal=True, label_visibility="collapsed")
